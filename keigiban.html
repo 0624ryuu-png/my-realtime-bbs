@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebaseリアルタイム掲示板</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #1a73e8; }
+        .form-group { margin-bottom: 15px; }
+        input, textarea { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        textarea { height: 80px; resize: vertical; }
+        button { width: 100%; padding: 10px; background: #1a73e8; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        button:hover { background: #1557b0; }
+        hr { margin: 20px 0; border: 0; border-top: 1px solid #eee; }
+        .post { background: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 10px; border-left: 4px solid #1a73e8; }
+        .post-meta { font-size: 0.85em; color: #666; margin-bottom: 5px; }
+        .post-name { font-weight: bold; color: #333; }
+        .post-text { white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>リアルタイム掲示板</h1>
+    <div class="form-group">
+        <input type="text" id="username" placeholder="名前（名無しさん）">
+    </div>
+    <div class="form-group">
+        <textarea id="message" placeholder="メッセージを入力してください"></textarea>
+    </div>
+    <button id="sendBtn">書き込む</button>
+
+    <hr>
+    <div id="posts"></div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // -------------------------------------------------------------
+    // 【コピペエリア】あなたのFirebaseコンソールから取得した設定をここに貼り付けてください
+    const firebaseConfig = {
+        apiKey: "AIzaSyCPhwUCLkwVuyNS_tUFug2c508SzyCrdYw",
+        authDomain: "my-bbs-app-1b757.firebaseapp.com",
+        projectId: "my-bbs-app-1b757",
+        storageBucket: "my-bbs-app-1b757.firebasestorage.app",
+        messagingSenderId: "54518459021",
+        appId: "1:54518459021:web:f019dd40fb72d29f0250c4"
+    };
+    // -------------------------------------------------------------
+
+    // Firebaseの初期化
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // データの送信処理
+    document.getElementById('sendBtn').addEventListener('click', async () => {
+        const nameInput = document.getElementById('username');
+        const messageInput = document.getElementById('message');
+        
+        const name = nameInput.value.trim() || "名無しさん";
+        const message = messageInput.value.trim();
+
+        if (!message) {
+            alert('メッセージを入力してください');
+            return;
+        }
+
+        try {
+            // Firestoreの「posts」コレクションにデータを追加
+            await addDoc(collection(db, "posts"), {
+                name: name,
+                message: message,
+                createdAt: serverTimestamp() // サーバー側の時間
+            });
+            messageInput.value = ''; // 入力欄を空にする
+        } catch (error) {
+            console.error("エラーが発生しました: ", error);
+            alert("送信に失敗しました。");
+        }
+    });
+
+    // データのリアルタイム読み込み処理
+    const postsQuery = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+    
+    // データベースに変更があったら自動で実行される（リアルタイム同期）
+    onSnapshot(postsQuery, (snapshot) => {
+        const postsDiv = document.getElementById('posts');
+        postsDiv.innerHTML = ''; // 一旦クリア
+
+        snapshot.forEach((doc) => {
+            const data = doc.data();
+            
+            // 時間の変換処理
+            let dateStr = "送信中...";
+            if (data.createdAt) {
+                const date = data.createdAt.toDate();
+                dateStr = `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+            }
+
+            // 画面に表示するHTMLを構築
+            const postEl = document.createElement('div');
+            postEl.className = 'post';
+            postEl.innerHTML = `
+                <div class="post-meta"><span class="post-name">${escapeHTML(data.name)}</span> ＠ ${dateStr}</div>
+                <div class="post-text">${escapeHTML(data.message)}</div>
+            `;
+            postsDiv.appendChild(postEl);
+        });
+    });
+
+    // エスケープ関数（セキュリティ対策）
+    function escapeHTML(str) {
+        return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+</script>
+</body>
+</html>

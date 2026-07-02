@@ -3,119 +3,160 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Firebaseリアルタイム掲示板</title>
-    <style>
-        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #1a73e8; }
-        .form-group { margin-bottom: 15px; }
-        input, textarea { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        textarea { height: 80px; resize: vertical; }
-        button { width: 100%; padding: 10px; background: #1a73e8; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
-        button:hover { background: #1557b0; }
-        hr { margin: 20px 0; border: 0; border-top: 1px solid #eee; }
-        .post { background: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 10px; border-left: 4px solid #1a73e8; }
-        .post-meta { font-size: 0.85em; color: #666; margin-bottom: 5px; }
-        .post-name { font-weight: bold; color: #333; }
-        .post-text { white-space: pre-wrap; }
-    </style>
+    <title>マイリアルタイムBBS</title>
+    <!-- Tailwind CSS (デザインを劇的におしゃれにする魔法のリンク) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome (アイコンを表示するためのリンク) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
-<body>
+<body class="bg-slate-100 min-h-screen py-10 px-4 font-sans">
 
-<div class="container">
-    <h1>リアルタイム掲示板</h1>
-    <div class="form-group">
-        <input type="text" id="username" placeholder="名前（名無しさん）">
-    </div>
-    <div class="form-group">
-        <textarea id="message" placeholder="メッセージを入力してください"></textarea>
-    </div>
-    <button id="sendBtn">書き込む</button>
-
-    <hr>
-    <div id="posts"></div>
-</div>
-
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-    // -------------------------------------------------------------
-    // 【コピペエリア】あなたのFirebaseコンソールから取得した設定をここに貼り付けてください
-    const firebaseConfig = {
-        apiKey: "AIzaSyCPhwUCLkwVuyNS_tUFug2c508SzyCrdYw",
-        authDomain: "my-bbs-app-1b757.firebaseapp.com",
-        projectId: "my-bbs-app-1b757",
-        storageBucket: "my-bbs-app-1b757.firebasestorage.app",
-        messagingSenderId: "54518459021",
-        appId: "1:54518459021:web:f019dd40fb72d29f0250c4"
-    };
-    // -------------------------------------------------------------
-
-    // Firebaseの初期化
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    // データの送信処理
-    document.getElementById('sendBtn').addEventListener('click', async () => {
-        const nameInput = document.getElementById('username');
-        const messageInput = document.getElementById('message');
+    <div class="max-w-md mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200">
         
-        const name = nameInput.value.trim() || "名無しさん";
-        const message = messageInput.value.trim();
+        <!-- ヘッダー部分 -->
+        <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white text-center">
+            <h1 class="text-2xl font-bold tracking-wider"><i class="fa-solid fa-comments mr-2"></i>リアルタイムBBS</h1>
+            <p class="text-xs text-indigo-100 mt-1">最新の書き込みが常に一番上に表示されます</p>
+        </div>
 
-        if (!message) {
-            alert('メッセージを入力してください');
-            return;
+        <!-- 投稿フォーム -->
+        <div class="p-6 border-b border-slate-100 bg-slate-50">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">お名前</label>
+                    <input type="text" id="nameInput" placeholder="名前を入力..." 
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">メッセージ</label>
+                    <textarea id="messageInput" placeholder="メッセージを入力..." rows="3"
+                              class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all text-sm resize-none"></textarea>
+                </div>
+                <button id="sendButton" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 text-sm">
+                    <i class="fa-solid fa-paper-plane"></i> 書き込む
+                </button>
+            </div>
+        </div>
+
+        <!-- 投稿表示エリア -->
+        <div class="p-6">
+            <h2 class="text-sm font-bold text-slate-400 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left"></i> タイムライン
+            </h2>
+            <div id="posts" class="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                <!-- ここに投稿がJavaScriptで自動追加されます -->
+                <div class="text-center text-slate-400 py-8 text-sm">投稿を読み込んでいます...</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Firebase SDKの読み込み (v10を使用) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // ⚠️ あなたのFirebaseの「firebaseConfig」に書き換えてください！
+        const firebaseConfig = {
+            apiKey: "AIzaSyCPhwUClKwVuyNS_tUFug2c508SzyCrdYw",
+            authDomain: "my-bbs-app-1b757.firebaseapp.com",
+            projectId: "my-bbs-app-1b757",
+            storageBucket: "my-bbs-app-1b757.firebasestorage.app",
+            messagingSenderId: "54518459021",
+            appId: "1:54518459021:web:f019dd40fb72d29f0250c4"
+        };
+
+
+        // Firebaseの初期化
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const postsCollection = collection(db, "posts");
+
+        const nameInput = document.getElementById("nameInput");
+        const messageInput = document.getElementById("messageInput");
+        const sendButton = document.getElementById("sendButton");
+        const postsDiv = document.getElementById("posts");
+
+        // ローカルストレージから名前を復元（地味に便利なオートセーブ機能！）
+        const savedName = localStorage.getItem("saved_name");
+        if (savedName) {
+            nameInput.value = savedName;
         }
 
-        try {
-            // Firestoreの「posts」コレクションにデータを追加
-            await addDoc(collection(db, "posts"), {
-                name: name,
-                message: message,
-                createdAt: serverTimestamp() // サーバー側の時間
-            });
-            messageInput.value = ''; // 入力欄を空にする
-        } catch (error) {
-            console.error("エラーが発生しました: ", error);
-            alert("送信に失敗しました。");
-        }
-    });
+        // 送信処理
+        sendButton.addEventListener("click", async () => {
+            const name = nameInput.value.trim();
+            const message = messageInput.value.trim();
 
-    // データのリアルタイム読み込み処理
-    const postsQuery = query(collection(db, "posts"), orderBy("createdAt", "desc"));
-    
-    // データベースに変更があったら自動で実行される（リアルタイム同期）
-    onSnapshot(postsQuery, (snapshot) => {
-        const postsDiv = document.getElementById('posts');
-        postsDiv.innerHTML = ''; // 一旦クリア
-
-        snapshot.forEach((doc) => {
-            const data = doc.data();
-            
-            // 時間の変換処理
-            let dateStr = "送信中...";
-            if (data.createdAt) {
-                const date = data.createdAt.toDate();
-                dateStr = `${date.getFullYear()}/${date.getMonth()+1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+            if (!name || !message) {
+                alert("名前とメッセージを入力してください！");
+                return;
             }
 
-            // 画面に表示するHTMLを構築
-            const postEl = document.createElement('div');
-            postEl.className = 'post';
-            postEl.innerHTML = `
-                <div class="post-meta"><span class="post-name">${escapeHTML(data.name)}</span> ＠ ${dateStr}</div>
-                <div class="post-text">${escapeHTML(data.message)}</div>
-            `;
-            postsDiv.appendChild(postEl);
-        });
-    });
+            // 名前をブラウザに保存（次回から入力不要に）
+            localStorage.setItem("saved_name", name);
 
-    // エスケープ関数（セキュリティ対策）
-    function escapeHTML(str) {
-        return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
-    }
-</script>
+            try {
+                // 💡 【アップデート箇所】createdAtにサーバー上の現在時刻（serverTimestamp）を乗せて保存します
+                await addDoc(postsCollection, {
+                    name: name,
+                    message: message,
+                    createdAt: serverTimestamp()
+                });
+                messageInput.value = ""; // 入力欄をクリア
+            } catch (error) {
+                console.error("送信エラー: ", error);
+                alert("送信に失敗しました。ルール設定などを確認してください。");
+            }
+        });
+
+        // 💡 【アップデート箇所】データを「createdAt」の「desc（新しい順）」に並び替えるクエリを作成
+        const q = query(postsCollection, orderBy("createdAt", "desc"));
+
+        // リアルタイムでデータを監視して表示
+        onSnapshot(q, (snapshot) => {
+            postsDiv.innerHTML = ""; // 一旦リセット
+
+            if (snapshot.empty) {
+                postsDiv.innerHTML = `<div class="text-center text-slate-400 py-8 text-sm">最初の投稿を書き込んでみましょう！</div>`;
+                return;
+            }
+
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                
+                // 時刻の変換処理（まだ保存されたばかりでサーバー時刻が未確定の場合は、今のスマホやPCの時間で仮表示する）
+                let timeStr = "";
+                if (data.createdAt) {
+                    const date = data.createdAt.toDate();
+                    timeStr = `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+                } else {
+                    const date = new Date();
+                    timeStr = `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')} (送信中)`;
+                }
+
+                // 1つの投稿カードを作成
+                const postElement = document.createElement("div");
+                postElement.className = "bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-md";
+                postElement.innerHTML = `
+                    <div class="flex justify-between items-center mb-1.5">
+                        <span class="font-bold text-slate-800 text-sm"><i class="fa-solid fa-user-astronaut text-indigo-400 mr-1"></i> ${escapeHtml(data.name)}</span>
+                        <span class="text-[10px] text-slate-400 font-mono">${timeStr}</span>
+                    </div>
+                    <p class="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">${escapeHtml(data.message)}</p>
+                `;
+                postsDiv.appendChild(postElement);
+            });
+        });
+
+        // セキュリティ対策（安全に文字を表示するための関数）
+        function escapeHtml(str) {
+            if (!str) return "";
+            return str.replace(/[&<>'"]/g, (tag) => {
+                const chars = { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' };
+                return chars[tag] || tag;
+            });
+        }
+    </script>
 </body>
 </html>
